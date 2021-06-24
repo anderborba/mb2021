@@ -1,0 +1,104 @@
+---
+title: "Optimization with two parameters in Gaussian distribution"
+author: "Anderson Borba"
+date: "18 June 2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(ggplot2)
+require(ggthemes)
+theme_set(theme_pander())
+require(reshape2)
+rm(list = ls())
+require(maxLik)
+library(plotly)
+library(datasets)
+#### webshot function
+#webshot::install_phantomjs()
+data(CO2)
+set.seed(1234567890, kind="Mersenne-Twister")
+```
+
+# Example of Optimization with two parameters in Gaussian distribution
+
+We assumed Gaussian distributions, so the densities are:
+$$
+f_{Z_(z; \mu, \sigma)} = \frac{1}{\sigma\sqrt{2\pi}}\exp\{-\frac{1}{2}(z-\mu)^2/\sigma^2\}
+$$
+
+We will illustrate in the following the idea of find parameters apply MLE (maximum Likelihood Estimation)
+
+we will use log in both side the above equation.
+$$
+\ell(z; \mu, \sigma)=\log(f_{Z_(z; \mu, \sigma)}) = \log\Bigg(\frac{1}{\sigma\sqrt{2\pi}}\exp\{-(z-\mu)^2/2\sigma^2\}\Bigg)
+$$
+$$
+\ell(z; \mu, \sigma)=\log\Bigg(\frac{1}{\sigma}\Bigg) + \log\Bigg(\frac{1}{\sqrt{2\pi}}\Bigg) + \log\Bigg(\exp\{-\frac{1}{2}(z-\mu)^2/\sigma^2\}\Bigg)
+$$
+$$
+\ell(z; \mu, \sigma)=\log\big(\sigma^{-1}\big) + \log\big(\sqrt{2\pi}^{-1}\big)-\frac{1}{2\sigma^2}(z-\mu)^2
+$$
+$$
+\ell(z; \mu, \sigma)=-\log\big(\sigma\big) - \log\big(\sqrt{2\pi}\big)-\frac{1}{2\sigma^2}(z-\mu)^2
+$$
+First, we obtain a strip of data from database $(CO_2)$ uptake of six plants from Quebec and six plants from Mississippi was measured at several levels of ambient $(CO_2)$ concentration. Half the plants of each type were chilled overnight before the experiment was conducted. More detail at [r documentation](https://www.rdocumentation.org/packages/datasets/versions/3.6.2/topics/CO2)
+
+The methods MLE is used to $(CO_2)$ database, where $n$ is the lenght of the database, and $z_i$ an element, 
+$$
+\mathcal{L}(\mu, \sigma)= \sum_{i=1}^n\ell(z_i; \mu, \sigma)
+$$
+$$
+\mathcal{L}(\mu, \sigma)= \sum_{i=1}^n\Bigg[-\log\big(\sigma\big) - \log\big(\sqrt{2\pi}\big)-\frac{1}{2\sigma^2}(z_i-\mu)^2\Bigg]
+$$
+$$
+\mathcal{L}(\mu, \sigma)= -\sum_{i=1}^n\log\big(\sigma\big) - \sum_{i=1}^n\log\big(\sqrt{2\pi}\big)-\frac{1}{2\sigma^2}\sum_{i=1}^n\Bigg[\frac{1}{2\sigma^2}(z_i-\mu)^2\Bigg]
+$$
+$$
+\mathcal{L}(\mu, \sigma)= -n\log\big(\sigma\big) - n\log\big(\sqrt{2\pi}\big)-\frac{1}{2\sigma^2}\sum_{i=1}^n(z_i-\mu)^2
+$$
+```{r Define log-likelihood function}
+n <- nrow(CO2)
+z <- CO2$uptake
+loglik <- function(theta) {
+  mu <- theta[1]
+  sigma <- theta[2]
+  loglik <- -n*log(sqrt(2*pi)) - n*log(sigma) - 0.5*sum((z - mu)^2/sigma^2)
+}
+```
+We can do the bidimentional plot for this function:
+```{r Plot log-likelihood function}
+n_mu <- 100
+n_si <- 100
+mu_i <- 1
+mu_f <- 30
+si_i <- 1
+si_f <- 40
+h_mu <- (mu_f - mu_i) / ( n_mu - 1)
+h_si <- (si_f - si_i) / ( n_si - 1)
+ne   <- n_mu * n_si
+mesh_log_like <- matrix(0, n_mu, n_si)
+eixo_mu <- rep(0,n_mu)
+eixo_si <- rep(0, 1, n_si)
+for (i in 1 : n_mu){
+  eixo_mu[i] <- mu_i + (i - 1) * h_mu  
+  for (j in 1 : n_si){
+    eixo_si[j] <- si_i + (j - 1) * h_si
+    mesh_log_like[i, j] <- loglik(c(eixo_mu[i], eixo_si[j]))
+  }
+}
+p <- plot_ly(x = eixo_mu, y = eixo_si, z = mesh_log_like , type = "surface") 
+p 
+```
+
+We apply optimization package to find the maximum point.
+```{r Apply optimization}
+res <- maxLik(loglik, start=c(mu=30, sigma=10), method = "BFGS")
+res1 <- maxBFGS(loglik, start=c(mu=30, sigma=10))
+pt  <- res$estimate
+pt1 <- res1$estimate
+```
+<!-- Comentario-->

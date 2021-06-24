@@ -1,0 +1,29 @@
+maxBHHH <- function(fn, grad=NULL, hess=NULL,
+                    start,
+                    print.level=0,
+                    iterlim=100,
+                    finalHessian="BHHH",
+                    ...) {
+   ## hess:   Hessian, not used, for compatibility with the other methods
+
+   ## check if arguments of user-provided functions have reserved names
+   argNames <- c( "fn", "grad", "hess", "start", "print.level", "iterlim" )
+   checkFuncArgs( fn, argNames, "fn", "maxBHHH" )
+   if( !is.null( grad ) ) {
+      checkFuncArgs( grad, argNames, "grad", "maxBHHH" )
+   }
+   if( !is.null( hess ) ) {
+      checkFuncArgs( hess, argNames, "hess", "maxBHHH" )
+   }
+
+   ## using the Newton-Raphson algorithm with BHHH method for Hessian
+   a <- maxNR( fn=fn, grad = grad, hess = hess, start=start,
+              iterlim=iterlim,
+              print.level=print.level,
+              finalHessian = finalHessian,
+              bhhhHessian = TRUE,
+               ...)
+
+   a$type = "BHHH maximisation"
+   invisible(a)
+}

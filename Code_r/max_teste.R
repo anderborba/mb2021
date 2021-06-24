@@ -54,25 +54,25 @@ for (k in 10 : 10){# j aqui varre o número de radiais
   z     <-  zaux1[1:N]
   matdf1 <- matrix(0, nrow = N, ncol = 2)
   matdf2 <- matrix(0, nrow = N, ncol = 2)
-  for (j in 10 : 10 ){
+  for (j in 1 : N ){
     r1 <- 4
     r2 <- sum(z[1: j]) / j
     res1 <- maxBFGS(loglike, start=c(r1, r2))
     #res1 <- optim(c(r1, r2), loglike, method = "BFGS" )
-    #r1 <- 4
-    #r2 <- sum(z[(j + 1): N]) / (N - j)
-    #res2 <- maxBFGS(loglikd, start=c(r1, r2))
+    r1 <- 4
+    r2 <- sum(z[(j + 1): N]) / (N - j)
+    res2 <- maxBFGS(loglikd, start=c(r1, r2))
     #matdf1[j, 1] <- res1$par[1]
     #matdf1[j, 2] <- res1$par[2]
     matdf1[j, 1] <- res1$estimate[1]
     matdf1[j, 2] <- res1$estimate[2]
-    #matdf1[j, 1] <- 4
+    #matdf1[j, 1] <- 4 
     #matdf1[j, 2] <- sum(z[1: j]) / j
     if (j < N){
       #matdf2[j, 1] <- 4
       #matdf2[j, 2] <- sum(z[(j + 1): N]) / (N - j)
-      #matdf2[j, 1] <- res2$estimate[1]
-      #matdf2[j, 2] <- res2$estimate[2]
+      matdf2[j, 1] <- res2$estimate[1]
+      matdf2[j, 2] <- res2$estimate[2]
     }
   }
   lower <- 20

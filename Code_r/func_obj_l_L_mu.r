@@ -5,14 +5,10 @@
 # assim a subrotina define a funcão objetivo l(j) descrita na eq(5) do artigo NHFC_2014
 func_obj_l_L_mu <- function(param){
   j <- param
-  #Le <- matdf1[j,1]
-  #Ld <- matdf2[j,1]
-  Le <- 4
-  Ld <- 4
-  #mue <- matdf1[j,2]
-  #mud <- matdf2[j,2]
-  mue <- sum(z[1:j])
-  mud <- sum(z[(j + 1): N])
+  Le <- matdf1[j,1]
+  Ld <- matdf2[j,1]
+  mue <- matdf1[j,2]
+  mud <- matdf2[j,2]
   #
   aux1 <- Le * log(Le)
   aux2 <- (Le - 1) * sum(log(z[1: j])) / j

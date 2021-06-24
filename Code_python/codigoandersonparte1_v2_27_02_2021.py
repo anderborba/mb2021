@@ -15,6 +15,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import math
 from scipy.optimize import minimize
+from scipy.optimize import optimize
 from scipy.optimize import dual_annealing
 from scipy import optimize
 import scipy.special as sp
@@ -38,7 +39,7 @@ def select_data():
     print("2.San Francisco")
     opcao=int(input("type the option:"))
     if opcao==1:
-        imagem="/home/aborba/bm2021/Data/AirSAR_Flevoland_Enxuto.mat"
+        imagem="/home/aborba/github/mb2021/Data/AirSAR_Flevoland_Enxuto.mat"
         ## Valores ajustados visualmente - precisa definir o valor do centro da rea corretamente
         dx=278
 
@@ -270,94 +271,44 @@ def func_obj_l_L_mu(j, z, n, matdf1, matdf2):
     func_obj_l_L_mu = -(j * a1 + (n - j) * a2)
     return func_obj_l_L_mu
 #
+#def loglike(x, z, j):
+#    #
+#    aux1 = x[0] * np.log(x[0])
+#    aux2 = x[0] * sum(np.log(z[0: j])) / j
+#    aux3 = x[0] * np.log(x[1])
+#    aux4 = np.log(math.gamma(x[0]))
+#    aux5 = (x[0] / x[1]) * sum(z[0: j]) / j
+    #### Beware! The signal is negative because BFGS finds the point of minimum
+#    ll   = -(aux1 + aux2 - aux3 - aux4 - aux5)
+#    return ll
 def loglike(x, z, j):
-    logx0 = np.where(x[0] != 0, np.log(x[0]), 0)
-    logx1 = np.where(x[1] != 0, np.log(x[1]), 0)
-    loggamma0 = np.where(math.gamma(x[0]) != 0, np.log(math.gamma(x[0])), 0)
-    logz = np.where(z[0: j] != 0, np.log(z[0: j]), 0)
-    #
-    aux1 = x[0] * logx0
-    aux2 = x[0] * sum(logz) / j
-    aux3 = x[0] * logx1
-    aux4 = loggamma0
-    aux5 = (x[0] / x[1]) * sum(z[0: j]) / j
-    ll   = aux1 + aux2 - aux3 - aux4 - aux5
-    #ll = -((x[0] - 5)**2 + (x[1] - 6)**2)
+    if np.abs(x[0]) > 100:
+        x[0] = 100
+    L  = np.abs(x[0])
+    mu = np.abs(x[1])
+    aux1 = L * np.log(L)
+    aux2 = L * sum(np.log(z[0: j])) / j
+    aux3 = L * np.log(mu)
+    aux4 = np.log(math.gamma(L))
+    aux5 = (L / mu) * sum(z[0: j]) / j
+    #### Beware! The signal is negative because BFGS finds the point of minimum
+    ll   = -(aux1 + aux2 - aux3 - aux4 - aux5)
+    #ll   = (x[0] - 1)**2 + (x[1] - 3)**2
     return ll
-#
-def loglike_tes(x, lc1, lc2):
-    high = 10e5
-    low  = 0
-    logx0    = np.where(x[0] > low and  x[0] < high, np.log(x[0]), 0)
-    logx1    = np.where(x[1] > low and  x[1] < high, np.log(x[1]), 0)
-    aux1 = x[0] * logx0
-    aux2 = x[0] * lc2
-    aux3 = x[0] * logx1
-    aux4 = np.log(math.gamma(x[0]))
-    aux5 = (x[0] / x[1]) * lc1
-    ll   = aux1 + aux2 - aux3 - aux4 - aux5
-    return ll
-#
-def der_loglike_tes(x, lc1, lc2):
-    ### der[0] derivada em relação a L
-    ### der[1] derivada em relação a mu
-    high = 10e5
-    low  = 0
-    logx0    = np.where(x[0] > low and  x[0] < high, np.log(x[0]), 0)
-    logx1    = np.where(x[1] > low and  x[1] < high, np.log(x[1]), 0)
-    der = np.zeros(2)
-    der[0]   = logx0 + 1 - logx1 - (1 / math.gamma(x[0])) * sp.digamma(x[0]) + lc1 - lc2 / x[1]
-    der[1]   = (- x[0] / x[1] + (x[0] / x[1]**2) * lc2)
-    return der
 #
 def loglikd(x, z, j, n):
-    L = x[0]
-    mu = x[1]
-    #aux1 = L * np.log(L)
-    #aux2 = L * sum(np.log(z[j: n])) / (n - j)
-    #aux3 = L * np.log(mu)
-    #aux4 = np.log(math.gamma(L))
-    #aux5 = (L / mu) * sum(z[j: n]) / (n - j)
+    if np.abs(x[0]) > 100:
+        x[0] = 100
+    L  = np.abs(x[0])
+    mu = np.abs(x[1])
+    aux1 = L * np.log(L)
+    aux2 = L * sum(np.log(z[j: n])) / (n - j)
+    aux3 = L * np.log(mu)
+    aux4 = np.log(math.gamma(L))
+    aux5 = (L / mu) * sum(z[j: n]) / (n - j)
     #### Beware! The signal is negative because BFGS finds the point of minimum
-    #loglikd = aux1 + aux2 - aux3 - aux4 - aux5
-    loglikd = -((x[0] - 5)**2 + (x[1] - 6)**2)
-    return loglikd
-#
-def plot_loglik(MAT):
-    plt.rc('text', usetex=True)
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    dim = MAT.shape[1]
-    print(dim)
-    sig = np.zeros(dim)
-    # Fixando a radial
-    for i in range(dim):
-        sig[i] = MAT[50, i, 0]
-    ## Make data
-    x = np.arange(0.0001, 5, 0.001)
-    y = np.arange(0.0001, 0.04 , 0.001)
-    x1, y1 = np.meshgrid(y, x)
-    n = x.shape[0]
-    m = y.shape[0]
-    l = 10
-    s = (n, m)
-    print(s)
-    z_mat = np.zeros(s)
-    varx = np.zeros(2)
-    for i in range(n):
-        for j in range(m):
-            varx[0] = x[i]
-            varx[1] = y[j]
-            z_mat[i][j] = loglike(varx, sig, l)
-    #
-    surf = ax.plot_surface(x1, y1, z_mat, cmap=cm.coolwarm,
-                       linewidth=0, antialiased=False)
-#
-    plt.xlabel(r'$\sigma$')
-    plt.ylabel(r'$L$')
-    plt.title(r'Log - likelihood $\ell(L,\sigma)$')
-    fig.colorbar(surf, shrink=0.5, aspect=5)
-    plt.show()
+    ll =  -(aux1 + aux2 - aux3 - aux4 - aux5)
+    return ll
 #
 def which(self):
     try:
@@ -368,20 +319,6 @@ def which(self):
     indices = [i for i, x in enumerate(self) if bool(x) == True]
     return(indices)
 #
-def der_fun_loglike(x):
-    L = x[0]
-    mu = x[1]
-    c1 = sum(np.log(z[0: j])) / j
-    c2 = sum(z[0: j]) / j
-    #### Beware! The signal is negative because BFGS finds the point of minimum
-    ### der[0] derivada em relação a L
-    ### der[1] derivada em relação a mu
-    der = np.zeros(2)
-    der[0]   = (np.log(L) + 1 - np.log(mu) - (1 / math.gamma(L)) * sp.digamma(L) + c1 - c2 / mu)
-    der[1]   = (- L / mu + (L / mu**2) * c2)
-    #der[0]   = -2.0 * (x[0] - 6)
-    #der[1]   = -2.0 * (x[1] - 5)
-    return der
 #### Programa principal
 #maxLik = importr('maxLik')
 #loglike_der_func = ri.rternalize(der_fun_loglike)
@@ -401,19 +338,16 @@ MXC, MYC, MY, IT, PI=desenha_raios(ncols, nrows, nc, RAIO, NUM_RAIOS, img, PI, x
 #
 z = np.zeros(RAIO)
 #loglike_func = ri.rternalize(lambda xx:loglike(xx, z, j))
-#L = 4
-#Le = 4
-#Ld = 4
 # nc = 9, momentaneamente uso ncanal=3
 ncanal = 1
 evidencias = np.zeros((NUM_RAIOS, 3))
 varx = np.zeros(2)
 #varx = FloatVector((-1.2, 1))
-#for canal in range(ncanal):
-for canal in range(0,1):
+for canal in range(ncanal):
+#for canal in range(0,1):
     print(canal)
     #for k in range(NUM_RAIOS):
-    for k in range(50, 51):
+    for k in range(9, 10):
         print(k)
         N = RAIO
         z = MY[k, :, canal]
@@ -429,60 +363,56 @@ for canal in range(0,1):
         z =  zaux[1:N]
         matdf1 =  np.zeros((N, 2))
         matdf2 =  np.zeros((N, 2))
-        for j in range(1, N):
-            print(j)
-        #for j in range(10, 11):
-            mue = sum(z[0: j]) / j
-            Le = 1.0
-            lc1 = sum(z[0: j]) / j
-            lc2 = sum(np.log(z[0: j])) / j
-            varx[0] = 4
-            varx[1] = lc1
-            #res2 = maxLik.maxBFGS(loglike_func, loglike_der_func, start = varx)
-            #res2 = maxLik.maxBFGS(loglike_func, start = varx)
-            #res2 = maxLik.maxBFGS(loglike_func, start = varx, iterlim = 5)
-            res = minimize(lambda varx:loglike_tes(varx, lc1, lc2), varx, method='BFGS', jac = lambda varx:der_loglike_tes(varx, lc1, lc2))
+        #for j in range(1, (N - 1)):
+        #for j in range(1, (N - 1)):
+        #    print(j)
+        for j in range(9, 10):
+            #mue = sum(z[0: j]) / j
+            #Le = 4.0
+            #lc1 = sum(z[0: j]) / j
+            #lc2 = sum(np.log(z[0: j])) / j
+            varx[0] = 1
+            varx[1] = sum(z[0: j]) / j
+            print(z)
+            res = minimize(lambda varx:loglike(varx, z, j), \
+                  varx, \
+                  method="BFGS", \
+                  tol = 1e-08, \
+                  options={'gtol': 1e-08, \
+                           'eps': 1.4901161193847656e-08,\
+                           'maxiter': 200, \
+                           'disp': False,   \
+                           'return_all': True})
+            #res = minimize(lambda varx:loglike(varx, z, j), varx, method='BFGS')
             #res = optimize.fmin_bfgs(lambda varx:loglike(varx, z, j), varx, jac = lambda varx:der_fun_L_mu(varx, z, j))
-            #res = optimize.fmin_bfgs(lambda varx:loglike_tes(varx, lc1, lc2), varx, jac = lambda varx:der_loglike_tes(varx, lc1, lc2))
-            #res = optimize.minimize(lambda varx:loglike(varx, z, j), varx, method="Powell", tol=1e-10)
-            #res = optimize.anneal(lambda varx:loglike(varx, z, j), varx)
-            #matdf1[j, 0] = res.x[0]
-            #matdf1[j, 1] = res.x[1]
-            matdf1[j, 0] = res[0]
-            matdf1[j, 1] = res[1]
-            mud = sum(z[j: (N + 1)]) / (N - j)
-            Ld = 4.0
+            matdf1[j, 0] = np.abs(res.x[0])
+            matdf1[j, 1] = np.abs(res.x[1])
+            #mud = sum(z[j: (N + 1)]) / (N - j)
+            #Ld = 4.0
+            #lc1 = mud
+            #lc2 = sum(np.log(z[j: (N + 1)])) / (N - j)
+            varx[0] = 4
+            varx[1] = sum(z[j: N]) / (N - j)
+            res = minimize(lambda varx:loglikd(varx, z, j, N), \
+                  varx, \
+                  method="BFGS", \
+                  tol = 1e-08, \
+                  options={'gtol': 1e-08, \
+                           'eps': 1.4901161193847656e-08,\
+                           'maxiter': 200, \
+                           'disp': False,   \
+                           'return_all': True, })
             #res = minimize(lambda varx:loglikd(varx, z, j, N), varx, method='BFGS')
-            #matdf2[j, 0] = res.x[0]
-            #matdf2[j, 1] = res.x[1]
-            matdf2[j, 0] = varx[0]
-            matdf2[j, 1] = varx[1]
+            #res = minimize(lambda varx:loglikd(varx, z, j, N), varx, method='BFGS')
+            matdf2[j, 0] = np.abs(res.x[0])
+            matdf2[j, 1] = np.abs(res.x[1])
 #
         lw = [14] * 1
         up = [N - 14] * 1
-        #ret = dual_annealing(lambda x:func_obj_l_L_mu(x,z, N, matdf1, matdf2), bounds=list(zip(lw, up)), seed=1234)
-        #evidencias[k, canal] = np.round(ret.x)
+        ret = dual_annealing(lambda x:func_obj_l_L_mu(x,z, N, matdf1, matdf2), \
+              bounds=list(zip(lw, up)), seed=1234)
+        evidencias[k, canal] = np.round(ret.x)
 #
-#plot_loglik(MY)
-#
-#
-#IM  = np.zeros([nrows, ncols, ncanal])
-#for canal in range(ncanal):
-#    for k in range(NUM_RAIOS):
-#        print(k)
-#        ik = np.int(evidencias[k, canal])
-#        ia = np.int(MXC[k, ik])
-#        ja = np.int(MYC[k, ik])
-#        IM[ja, ia, canal] = 1
-## OBS: O indice i varia na vertical da le_imagem
-##      O indice j varia na horizontal da le_imagem
-#
-# A primeira variavel do plot varia na horizonta da esq p/ dir
-# A segunda variavel do plot varia na vertical de cima p/ baixo
-#plt.figure(figsize=(15,20))
-#plt.plot(ncols/2, nrows/2, marker='v', color="blue")
-#plt.plot(x0,y0, marker='o', color="red")
-#plt.plot(xr, yr, color="green", linewidth=3)
+#plt.figure(figsize=(20*k, 20))
 #plt.imshow(IM[:, :, 0])
-#plt.imshow(PI)
 #plt.show()

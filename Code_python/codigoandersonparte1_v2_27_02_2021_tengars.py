@@ -33,7 +33,7 @@ def select_data():
     print("2.San Francisco")
     opcao=int(input("type the option:"))
     if opcao==1:
-        imagem="/home/aborba/bm2021/Data/AirSAR_Flevoland_Enxuto.mat"
+        imagem="/home/aborba/github/mb2021/Data/AirSAR_Flevoland_Enxuto.mat"
         ## Valores ajustados visualmente - precisa definir o valor do centro da rea corretamente
         dx=278
 
@@ -340,57 +340,29 @@ def fus_dwt(E, m, n, nc):
     F = pywt.idwt2(fus_coef, 'db2')
     return F
 #
-def fus_swt(E, m, n, nc):
-    # Stationary wavelet transform Fusion
-    # Input: E     - (m x n x nc) Data with one image per channel
-    #        m x n - Image dimension
-    #        nc    - Channels number
-    # Output: F - Image fusion
-    #
-    # Calculates SWT to each channel nc
-    # Set a list with (mat, tuple) coefficients
-    cA = []
-    lis = []
-    for canal in range(nc):
-        lis = pywt.swt2(E[ :, :, canal], 'sym2', level= 1, start_level= 0)
-        cA.append(lis)
-    #
-    # Fusion Method
-    # Calculates average to all channels with the coefficients cA from SWT transform
-    cAF = 0
-    for canal in range(nc):
-        cAF = cAF + cA[canal][0][0]
-    cAF = cAF / nc
-    #
-    # Calculates maximum to all channels with the coefficients cH, cV e Cd from SWT transform
-    cHF = np.maximum(cA[0][0][1][0], cA[0][0][1][0])
-    cVF = np.maximum(cA[1][0][1][1], cA[1][0][1][1])
-    cDF = np.maximum(cA[2][0][1][2], cA[2][0][1][2])
-    for canal in range(2, nc):
-        cHF = np.maximum(cHF, cA[canal][0][1][0])
-        cVF = np.maximum(cVF, cA[canal][0][1][1])
-        cDF = np.maximum(cDF, cA[canal][0][1][2])
-    #
-    # Set the fusion coefficients like (mat, tuple)
-    cF = []
-    cF.append([cAF, (cHF, cVF, cDF)])
-    F = pywt.iswt2(cF, 'sym2')
-    return F
-#
-def mr_svd(MAT, m, n):
+def mr_svd(M, m, n):
+    # Direct SVD decomposition
+    # Set multi-resolution two level
     m = int(m/2)
     n = int(n/2)
-    A = np.zeros((4, m * n))
-    AUX = np.zeros(4)
+    # Set md to two level SVD decomposition IM.LL, IM.LH, IM.HL, and IM.HH
+    # Obs: Each decomposition level split the initial image into 4 matrix
+    md = 4
+    # Resize M into matrix A[4, m * n]
+    A = np.zeros((md, m * n))
+    AUX = np.zeros(md)
     for j in range(n):
         for i in range(m):
             for l in range(2):
                 for k in range(2):
-                    A[k + l * 2, i + j * m] = MAT[i * 2 + k, j * 2 + l]
+                    A[k + l * 2, i + j * m] = M[i * 2 + k, j * 2 + l]
     #
-    U, S, V = np.linalg.svd(A, full_matrices=True)
+    # Calculate SVD decomposition to A
+    #U, S, V = np.linalg.svd(A)
+    U, S, V = np.linalg.svd(A, full_matrices=False)
     UT =  U.transpose()
     T = UT @ A
+    # Set each line of T into a vector TLL, TLH, THL, and THH
     TLL = np.zeros((m, n))
     TLH = np.zeros((m, n))
     THL = np.zeros((m, n))
@@ -402,29 +374,89 @@ def mr_svd(MAT, m, n):
             THL[i, j] = T[2, i + j * m]
             THH[i, j] = T[3, i + j * m]
     #
+    # Put TLL, TLH, THL, and THH into a list Y
     Y = []
-    Y.append([TLL, TLH, THL, THH])
+    Y.append(TLL)
+    Y.append(TLH)
+    Y.append(THL)
+    Y.append(THH)
+    # Return Y decomposition and matrix U of the SVD decomposition
     return Y, U
 #
 def mr_isvd(Y, U):
-    dim = Y[0][0].shape
+    # Inverse SVD decomposition
+    # Define dimension
+    dim = Y[0].shape
+    m = dim[0]
+    n = dim[1]
     mn = dim[0] * dim[1]
-    T = np.zeros((4, mn))
-    for j in range(nn):
-        for i in range(mm):
-            T[0, i + j * mm] = Y[0][0][i][j]
-            T[1, i + j * mm] = Y[0][1][i][j]
-            T[2, i + j * mm] = Y[0][2][i][j]
-            T[3, i + j * mm] = Y[0][3][i][j]
+    # Put list Y into matrix T[4, m * n]
+    # Obs: Each decomposition level split the initial image into 4 matrix
     #
+    T = np.zeros((4, mn))
+    for j in range(n):
+        for i in range(m):
+            T[0, i + j * m] = Y[0][i][j]
+            T[1, i + j * m] = Y[1][i][j]
+            T[2, i + j * m] = Y[2][i][j]
+            T[3, i + j * m] = Y[3][i][j]
+    #
+    # Inverse SVD
     A = U @ T
-    for j in range(nn):
-        for i in range(mm):
+    # Put A into matrix M
+    M = np.zeros((2 * m, 2 * n))
+    for j in range(n):
+        for i in range(m):
             for l in range(2):
                 for k in range(2):
-                    MAT[i * 2 + k, j * 2 + l] = A[k + l * 2, i + j * mm]
-    return MAT
-
+                    M[i * 2 + k, j * 2 + l] = A[k + l * 2, i + j * m]
+    # Return the image M
+    return M
+#
+def fus_svd(E, m, n, nc):
+    # Realize the SVD FUSION
+    XC = []
+    UC = []
+    # Calculate the SVD methods for each image (channel)
+    # Storage into two list
+    for c in range(nc):
+        X, U = mr_svd(E[:, :, c], m, n)
+        XC.append(X)
+        UC.append(U)
+    #
+    # Set coarse dimension
+    mr = int(m / 2)
+    nr = int(n / 2)
+    SOMA = np.zeros((mr, nr))
+    XLL  = np.zeros((mr, nr))
+    # Calculate the average in alls decompositions X.LL (among channel)
+    for c in range(nc):
+        SOMA = SOMA + XC[c][0]
+    XLL = SOMA / nc
+    #
+    XF = []
+    XF.append(XLL)
+    #
+    # Obs: Each decomposition level split the initial image into 4 matrix
+    nd = 4
+    # Calculate the maximum in alls decompositions X.LH, X.HL, and X.HH (among channel)
+    for c in range(1, nd):
+        D = np.maximum(XC[0][c], XC[1][c])>= 0
+        # Element-wise multiplication, and rule to fusion
+        XA = D * XC[0][c] + ~D * XC[1][c]
+        D = np.maximum(XA, XC[2][c])>= 0
+        # Element-wise multiplication, and rule to fusion
+        COEF = D * XA + ~D * XC[2][c]
+        XF.append(COEF)
+    #
+    # Rule fusion to matriz list UC
+    SOMA1 = np.zeros((4, 4))
+    UF    = np.zeros((4, 4))
+    for c in range(nc):
+        SOMA1 = SOMA1 + UC[c]
+    UF = SOMA1 / nc
+    IF = mr_isvd(XF, UF)
+    return IF
 ## Define a imagem as ser lida
 imagem, dx, dy, RAIO, NUM_RAIOS, alpha_i, alpha_f = select_data()
 ## Le a imagem e retorna a imagem, tamanho da imagem e numero de canais
@@ -496,8 +528,9 @@ for canal in range(ncanal):
 #
 #TESTE = fus_dwt(IM, nrows, ncols, ncanal)
 #TESTE = fus_swt(IM, nrows, ncols, ncanal)
-TESTE, U = mr_svd(MAT, m, n)
-TESTE    = mr_isvd(TESTE, U)
+TESTE = fus_svd(IM, nrows, ncols, ncanal)
+#TESTE, U = mr_svd(MAT, m, n)
+#TESTE    = mr_isvd(TESTE, U)
 #
 #
 ## OBS: O indice i varia na vertical da le_imagem
@@ -509,7 +542,7 @@ plt.figure(figsize=(15,20))
 plt.plot(ncols/2, nrows/2, marker='v', color="blue")
 plt.plot(x0,y0, marker='o', color="red")
 plt.plot(xr, yr, color="green", linewidth=3)
-plt.imshow(MATES1)
+plt.imshow(TESTE)
 #plt.imshow(IM[:, :, 0])
 #plt.imshow(PI)
 plt.show()
