@@ -460,9 +460,6 @@ def func_obj_l_L_mu(j, z, n, matdf1, matdf2):
 def loglike(x, z, j):
     #Guarantees that the parameter (L) is less than 100(choice values)
     # because gamma(L) becomes large
-    #if x[0] > 100:
-    #    x[0] = 100
-    # Guarantees that the parameters (L, mu) are positive
     L  = x[0]
     mu = x[1]
     aux1 = L * np.log(L)
@@ -470,10 +467,6 @@ def loglike(x, z, j):
     aux3 = L * np.log(mu)
     aux4 = np.log(math.gamma(L))
     aux5 = (L / mu) * sum(z[0: j]) / j
-    #print("passou j, sum z, L")
-    #print(j)
-    #print(sum(z[0: j]) / (j + 1))
-    #print(L)
     #### Beware! The signal is negative because BFGS routine finds the point of minimum
     ll   = -(aux1 + aux2 - aux3 - aux4 - aux5)
     return ll
@@ -498,9 +491,6 @@ def loglike(x, z, j):
 def loglikd(x, z, j, n):
     #Guarantees that the parameter (L) is less than 100(choice values)
     # because gamma(L) becomes large
-    #if x[0] > 100:
-    #    x[0] = 100
-    # Guarantees that the parameters (L, mu) are positive
     L  = x[0]
     mu = x[1]
     aux1 = L * np.log(L)
@@ -636,7 +626,62 @@ def find_evidence_bfgs(RAIO, NUM_RAIOS, ncanal, MY):
             ret = dual_annealing(lambda x:func_obj_l_L_mu(x,z, N, matdf1, matdf2), bounds=list(zip(lw, up)), seed=1234)
             evidencias[k, canal] = np.round(ret.x)
     return evidencias
-
+##Finds border evidences using BFGS to estimate the parameters.
+##Using: 1) MLE - Maximum Likelihood Estimation.
+##    2) Optimization method BFGS to estimate the gamma pdf  parameters.
+##    3) Optimization method Simulated annealing to detect edge border evidences.
+##    4) Using PDF to span
+#
+def find_evidence_bfgs_span(RAIO, NUM_RAIOS, ncanal, MY):
+    print("Computing evidence with bfgs to span PDF - this might take a while")
+    z = np.zeros(RAIO)
+    evidencias = np.zeros(NUM_RAIOS)
+    lb = 0.00000001
+    ub = 10
+    bnds = ((lb, ub), (lb, ub))
+    for k in range(NUM_RAIOS):
+        print(k)
+        zaux = np.zeros(RAIO)
+        z = MY[k, :, 0] + 2 * MY[k, :, 1] + MY[k, :, 2]
+        conta = 0
+        for i in range(RAIO):
+            if z[i] > 0:
+                zaux[conta] = z[i]
+                conta = conta + 1
+        #
+        indx  = get_indexes(zaux != 0)
+        N = int(np.max(indx)) + 1
+        z =  zaux[0: N]
+        matdf1 =  np.zeros((N - 1, 2))
+        matdf2 =  np.zeros((N - 1, 2))
+        varx = np.zeros(2)
+        for j in range(1, N - 1):
+            varx[0] = 1
+            varx[1] = sum(z[0: j]) / j
+            res = minimize(lambda varx:loglike(varx, z, j),
+                            varx,
+                            method='L-BFGS-B',
+                            bounds= bnds)
+            matdf1[j, 0] = res.x[0]
+            matdf1[j, 1] = res.x[1]
+            #
+            varx[0] = 1
+            varx[1] = sum(z[j: N]) / (N - j)
+            res = minimize(lambda varx:loglikd(varx, z, j, N),
+                            varx,
+                            method='L-BFGS-B',
+                            bounds= bnds)
+            matdf2[j, 0] = res.x[0]
+            matdf2[j, 1] = res.x[1]
+            #
+            #
+        lw = [14]
+        up = [N - 14]
+        ret = dual_annealing(lambda x:func_obj_l_L_mu(x,z, N, matdf1, matdf2),
+                              bounds=list(zip(lw, up)),
+                              seed=1234)
+        evidencias[k] = np.round(ret.x)
+    return evidencias
 
 # In[20]:
 
@@ -1101,10 +1146,16 @@ x0, y0, xr, yr=define_radiais(RAIO, NUM_RAIOS, dx, dy, nrows, ncols, alpha_i, al
 
 MXC, MYC, MY, IT, PI=desenha_raios(ncols, nrows, nc, RAIO, NUM_RAIOS, img, PI, x0, y0, xr, yr)
 
-## Define the number of channels to be used to find evidence in the ROI
-ncanal=3
+## Define the number of channels to be used to find evidence
+## and realize the fusion in the ROI
+ncanal = 4
+evidencias = np.zeros((NUM_RAIOS, ncanal))
 ## Find the evidences
-evidencias=find_evidence_bfgs(RAIO, NUM_RAIOS, ncanal, MY)
+## Define the number of the intensities channels
+intensities_canal = 3
+
+evidencias[:, 0 : intensities_canal] = find_evidence_bfgs(RAIO, NUM_RAIOS, intensities_canal, MY)
+evidencias[:, ncanal - 1] = find_evidence_bfgs_span(RAIO, NUM_RAIOS, intensities_canal , MY)
 ## Put the evidences in an image
 IM=add_evidence(nrows, ncols, ncanal, evidencias)
 
@@ -1222,6 +1273,16 @@ plt.show()
 plt.figure(figsize=(20*kdw,20))
 for k in range(NUM_RAIOS):
     ik = np.int(evidencias[k, 2])
+    ia = np.int(MXC[k, ik])
+    ja = np.int(MYC[k, ik])
+    plt.plot(ia, ja, marker='o', color="darkorange")
+plt.imshow(PIA)
+plt.show()
+#
+## Shows the evidence for the pdf span
+plt.figure(figsize=(20*kdw,20))
+for k in range(NUM_RAIOS):
+    ik = np.int(evidencias[k, 3])
     ia = np.int(MXC[k, ik])
     ja = np.int(MYC[k, ik])
     plt.plot(ia, ja, marker='o', color="darkorange")
