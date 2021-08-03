@@ -1,0 +1,41 @@
+# To call the function
+# Input: IM     - (nrows x ncols x nc) Data with one image per channel
+IF = fus_swt(IM, nrows, ncols, nc)
+# output: IF - Image fusion
+def fus_swt(E, m, n, nc):
+# Stationary wavelet transform Fusion
+# Input: E     - (m x n x nc) Data with one image per channel
+#        m x n - Image dimension
+#        nc    - Channels number
+# Output: F - Image fusion
+#
+# Calculates SWT to each channel nc
+# Set a list with (mat, tuple) coefficients
+  cA = []
+  lis = []
+  for canal in range(nc):
+    lis = pywt.swt2(E[ :, :, canal], 'sym2', level= 1, start_level= 0)
+    cA.append(lis)
+#
+# Fusion Method
+# Calculates average to all channels with the coefficients cA from SWT transform
+  cAF = 0
+  for canal in range(nc):
+    cAF = cAF + cA[canal][0][0]
+  cAF = cAF / nc
+#
+# Calculates maximum to all channels with the coefficients cH, cV e Cd from SWT transform
+  cHF = np.maximum(cA[0][0][1][0], cA[0][0][1][0])
+  cVF = np.maximum(cA[1][0][1][1], cA[1][0][1][1])
+  cDF = np.maximum(cA[2][0][1][2], cA[2][0][1][2])
+  for canal in range(2, nc):
+    cHF = np.maximum(cHF, cA[canal][0][1][0])
+    cVF = np.maximum(cVF, cA[canal][0][1][1])
+    cDF = np.maximum(cDF, cA[canal][0][1][2])
+#
+# Set a list with the fusion coefficients like (mat, tuple)
+  cF = []
+  cF.append([cAF, (cHF, cVF, cDF)])
+  F = pywt.iswt2(cF, 'sym2')
+return F
+#

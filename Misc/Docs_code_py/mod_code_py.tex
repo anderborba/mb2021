@@ -1,0 +1,85 @@
+\documentclass{article}
+
+\usepackage[edges]{forest}
+\usepackage{rotating}
+
+\tikzset{%
+    parent/.style =          {align=center,text width=5.8cm,rounded corners=3pt},
+    child/.style =           {align=center,text width=4.0cm,rounded corners=3pt},
+    grandchild/.style =      {align=center,text width=5.0cm,rounded corners=3pt},
+    greatgrandchild/.style = {align=center,text width=2.8cm,rounded corners=3pt},
+    referenceblock/.style =  {align=center,text width=2.0cm,rounded corners=2pt}
+}
+\begin{document}
+	\begin{sidewaysfigure}
+ %   \begin{center}
+            \begin{forest}
+                for tree={
+                    forked edges,
+                    grow'=0,
+                    draw,
+                    rounded corners,
+                    node options={align=center,},
+                    text width=2.7cm,
+                },
+                [Main Code:\\ CodigoAndersonCompleto\_tengarss.py 
+                           \\ CodigoAndersonCompleto\_grsl.py
+                           \\ CodigoAndersonCompleto\_pdfs.py, fill=gray!45, parent
+                %
+                    [polsar\_basics, for tree={fill=red!45, child}
+                        [le\_image, fill=blue!30, grandchild]
+                        [show\_Pauli, fill=blue!30, grandchild]
+                        [bresenham, fill=blue!30, grandchild
+                        	[bresenham\_FirstOctante, fill=green!30, grandchild]
+                        ]
+                        [define\_radiais, fill=blue!30, grandchild]
+                        [desenha\_raios, fill=blue!30, grandchild
+							[test\_XY, fill=green!30, grandchild]                        
+                        ]
+                        [get\_gt\_lines, fill=blue!30, grandchild
+							[verifica\_coords, fill=green!30, grandchild]                        
+                        ]
+                        [get\_indexes, fill=blue!30, grandchild]
+                    ]
+                    %
+                    [polsar\_loglikelihood, for tree={fill=red!45,child}
+                        [loglike, fill=blue!30, grandchild]
+                        [loglikd, fill=blue!30, grandchild]
+                        [loglik\_intensity\_ratio, fill=blue!30, grandchild]
+                    ]
+                    %
+                    [polsar\_fusion, for tree={fill=red!45, child}
+                        [media, fill=blue!30, grandchild]
+                        [pca, fill=blue!30, grandchild]
+                        [roc, fill=blue!30, grandchild
+                        	[compute\_average, fill=green!30, greatgrandchild
+                                [intersection, fill=yellow!30, referenceblock]
+                            ]
+                            [findBestFusion, fill=green!30, greatgrandchild]
+                        ]
+                        [dwt, fill=blue!30, grandchild]
+                        [swt, fill=blue!30, grandchild]
+                        [svd, fill=blue!30, grandchild
+                            [mr\_svd, fill=green!30, greatgrandchild]
+                            [mr\_isvd, fill=green!30, greatgrandchild]
+                        ]
+                        [fusao, fill=blue!30, grandchild]
+                        [show\_fusion\_evidence, fill=blue!30, grandchild]
+                    ]
+                    [polsar\_total\_loglikelihood, for tree={fill=red!45, child}
+                        [func\_obj\_l\_L\_mu, fill=blue!30, grandchild]
+                        [func\_obj\_l\_intensity\_ratio\_tau\_rho, fill=blue!30, grandchild]
+                    ]
+                    [polsar\_evidence\_lib, for tree={fill=red!45, child}
+                        [find\_evidence, fill=blue!30, grandchild]
+                        [find\_evidence\_bfgs, fill=blue!30, grandchild]
+                        [find\_evidence\_bfgs\_span, fill=blue!30, grandchild]
+                        [find\_evidence\_bfgs\_intensity\_ratio, fill=blue!30, grandchild]
+                        [add\_evidence, fill=blue!30, grandchild]\
+                        [show\_evidence, fill=blue!30, grandchild]
+                    ]
+                ]
+            \end{forest}
+%    \end{center}
+	\end{sidewaysfigure}
+\end{document}
